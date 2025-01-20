@@ -27,7 +27,7 @@ macOS上でクロスコンパイルして、Windows用の実行ファイルを�
 1. リポジトリのクローン:
 
     ```bash
-    git clone [リポジトリURL]
+    git clone https://github.com/okamyuji/keep-awake
     cd keep-awake
     ```
 
