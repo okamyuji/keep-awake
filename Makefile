@@ -1,8 +1,5 @@
 # 基本変数の設定
-BINARY_NAME=keep-awake.exe
 GO=go
-GOOS=windows
-GOARCH=amd64
 
 # デフォルトのターゲット
 .DEFAULT_GOAL := help
@@ -11,37 +8,40 @@ GOARCH=amd64
 .PHONY: help
 help:
 	@echo "使用可能なコマンド:"
-	@echo "  make init     - プロジェクトの初期化"
-	@echo "  make deps    - 依存パッケージのインストール"
-	@echo "  make build   - Windowsバイナリのビルド"
-	@echo "  make clean   - ビルド成果物の削除"
-	@echo "  make test    - テストの実行"
-	@echo "  make all     - 依存関係のインストールからビルドまでを実行"
-
-# プロジェクトの初期化
-.PHONY: init
-init:
-	@echo "プロジェクトを初期化しています..."
-	mkdir -p keep-awake
-	cd keep-awake && $(GO) mod init keep-awake
-
-# 依存パッケージのインストール
-.PHONY: deps
-deps:
-	@echo "依存パッケージをインストールしています..."
-	$(GO) get golang.org/x/sys/windows
+	@echo "  make build-windows  - Windowsバイナリのビルド"
+	@echo "  make build-macos    - macOSバイナリのビルド"
+	@echo "  make build-all      - 全プラットフォームのビルド"
+	@echo "  make clean          - ビルド成果物の削除"
+	@echo "  make test           - テストの実行"
+	@echo "  make run            - ローカル実行（macOS）"
 
 # Windowsバイナリのビルド
-.PHONY: build
-build:
+.PHONY: build-windows
+build-windows:
 	@echo "Windowsバイナリをビルドしています..."
-	GOOS=$(GOOS) GOARCH=$(GOARCH) $(GO) build -o $(BINARY_NAME)
+	GOOS=windows GOARCH=amd64 $(GO) build -o keep-awake.exe
+
+# macOSバイナリのビルド（Apple Silicon）
+.PHONY: build-macos
+build-macos:
+	@echo "macOSバイナリをビルドしています..."
+	GOOS=darwin GOARCH=arm64 $(GO) build -o keep-awake-macos
+
+# macOSバイナリのビルド（Intel）
+.PHONY: build-macos-intel
+build-macos-intel:
+	@echo "macOS (Intel) バイナリをビルドしています..."
+	GOOS=darwin GOARCH=amd64 $(GO) build -o keep-awake-macos-intel
+
+# 全プラットフォームのビルド
+.PHONY: build-all
+build-all: build-windows build-macos
 
 # ビルド成果物の削除
 .PHONY: clean
 clean:
 	@echo "ビルド成果物を削除しています..."
-	rm -f $(BINARY_NAME)
+	rm -f keep-awake.exe keep-awake-macos keep-awake-macos-intel
 	go clean
 
 # テストの実行
@@ -50,18 +50,14 @@ test:
 	@echo "テストを実行しています..."
 	$(GO) test -v ./...
 
-# すべての処理を実行
-.PHONY: all
-all: clean deps build
-
-# 実行可能ファイルの実行（開発時のテスト用）
+# ローカル実行
 .PHONY: run
 run:
 	@echo "プログラムを実行しています..."
-	./$(BINARY_NAME)
+	$(GO) run .
 
 # カスタム間隔での実行（例：make run-custom INTERVAL=60）
 .PHONY: run-custom
 run-custom:
 	@echo "カスタム設定でプログラムを実行しています..."
-	./$(BINARY_NAME) -interval $(INTERVAL)
+	$(GO) run . -interval $(INTERVAL)
