@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"os/exec"
+	"syscall"
 )
 
 type caffeinateKeeper struct {
@@ -27,7 +28,17 @@ func (k *caffeinateKeeper) Start() error {
 
 func (k *caffeinateKeeper) Stop() error {
 	if k.cmd != nil && k.cmd.Process != nil {
-		return k.cmd.Process.Kill()
+		k.cmd.Process.Signal(syscall.SIGTERM)
+		err := k.cmd.Wait()
+		if err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				if status, ok := exitErr.Sys().(syscall.WaitStatus); ok && status.Signaled() {
+					return nil
+				}
+			}
+			return err
+		}
+		return nil
 	}
 	return nil
 }

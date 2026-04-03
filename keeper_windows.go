@@ -10,10 +10,14 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+type caller interface {
+	Call(a ...uintptr) (uintptr, uintptr, error)
+}
+
 var (
 	user32           = windows.NewLazyDLL("user32.dll")
-	procGetCursorPos = user32.NewProc("GetCursorPos")
-	procSetCursorPos = user32.NewProc("SetCursorPos")
+	procGetCursorPos caller = user32.NewProc("GetCursorPos")
+	procSetCursorPos caller = user32.NewProc("SetCursorPos")
 )
 
 type POINT struct {

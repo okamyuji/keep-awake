@@ -6,8 +6,6 @@ import (
 	"testing"
 	"time"
 	"unsafe"
-
-	"golang.org/x/sys/windows"
 )
 
 type MockProc struct {
@@ -54,7 +52,6 @@ func TestMouseMoveKeeper_StartStop(t *testing.T) {
 		},
 	}
 
-	user32 = &windows.LazyDLL{}
 	procGetCursorPos = mockDLL.NewProc("GetCursorPos")
 	procSetCursorPos = mockDLL.NewProc("SetCursorPos")
 
