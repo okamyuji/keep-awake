@@ -3,7 +3,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"time"
 	"unsafe"
 
@@ -38,6 +38,7 @@ func setCursorPos(x, y int32) {
 type mouseMoveKeeper struct {
 	interval int
 	done     chan struct{}
+	logger   *log.Logger
 }
 
 func (k *mouseMoveKeeper) Name() string { return "mouse-move" }
@@ -56,7 +57,7 @@ func (k *mouseMoveKeeper) Start() error {
 				setCursorPos(x+1, y)
 				time.Sleep(100 * time.Millisecond)
 				setCursorPos(x, y)
-				fmt.Printf("マウスを移動: (%d, %d) -> 1px右 -> 元の位置\n", x, y)
+				k.logger.Printf("マウスを移動: (%d, %d) -> 1px右 -> 元の位置\n", x, y)
 			}
 		}
 	}()
@@ -70,6 +71,6 @@ func (k *mouseMoveKeeper) Stop() error {
 	return nil
 }
 
-func platformKeepers(interval, maxMove int) []Keeper {
-	return []Keeper{&mouseMoveKeeper{interval: interval}}
+func platformKeepers(interval, maxMove int, logger *log.Logger) []Keeper {
+	return []Keeper{&mouseMoveKeeper{interval: interval, logger: logger}}
 }

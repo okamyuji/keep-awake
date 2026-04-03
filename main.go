@@ -13,11 +13,14 @@ func main() {
 	maxMove := flag.Int("maxmove", 5, "最大移動ピクセル数")
 	flag.Parse()
 
-	fmt.Printf("設定:\n - 間隔: %d秒\n - 最大移動距離: %dピクセル\n", *interval, *maxMove)
-	fmt.Println("Ctrl+Cで終了します")
+	logger, cleanup := setupLogger()
+	defer cleanup()
 
-	keepers := platformKeepers(*interval, *maxMove)
-	activeKeeper, err := tryKeepers(keepers)
+	logger.Printf("設定: 間隔=%d秒, 最大移動距離=%dピクセル", *interval, *maxMove)
+	logger.Println("Ctrl+Cで終了します")
+
+	keepers := platformKeepers(*interval, *maxMove, logger)
+	activeKeeper, err := tryKeepers(keepers, logger)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "エラー: %v\n", err)
 		os.Exit(1)
@@ -28,5 +31,5 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
 
-	fmt.Println("\nプログラムを終了します")
+	logger.Println("プログラムを終了します")
 }

@@ -2,6 +2,8 @@
 
 package main
 
-func platformKeepers(interval, maxMove int) []Keeper {
+import "log"
+
+func platformKeepers(interval, maxMove int, logger *log.Logger) []Keeper {
 	return []Keeper{}
 }

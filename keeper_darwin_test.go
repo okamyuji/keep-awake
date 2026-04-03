@@ -3,12 +3,14 @@
 package main
 
 import (
+	"log"
+	"os"
 	"os/exec"
 	"testing"
 )
 
 func TestCaffeinateKeeper_Name(t *testing.T) {
-	k := &caffeinateKeeper{}
+	k := &caffeinateKeeper{logger: log.New(os.Stdout, "", 0)}
 	if k.Name() != "caffeinate" {
 		t.Errorf("expected 'caffeinate', got '%s'", k.Name())
 	}
@@ -19,7 +21,7 @@ func TestCaffeinateKeeper_StartStop(t *testing.T) {
 		t.Skip("caffeinate not found, skipping")
 	}
 
-	k := &caffeinateKeeper{}
+	k := &caffeinateKeeper{logger: log.New(os.Stdout, "", 0)}
 	if err := k.Start(); err != nil {
 		t.Fatalf("Start failed: %v", err)
 	}
@@ -38,14 +40,15 @@ func TestCaffeinateKeeper_StartStop(t *testing.T) {
 }
 
 func TestCaffeinateKeeper_StopWithoutStart(t *testing.T) {
-	k := &caffeinateKeeper{}
+	k := &caffeinateKeeper{logger: log.New(os.Stdout, "", 0)}
 	if err := k.Stop(); err != nil {
 		t.Fatalf("Stop without Start should not error: %v", err)
 	}
 }
 
 func TestPlatformKeepers_Darwin(t *testing.T) {
-	keepers := platformKeepers(180, 5)
+	logger := log.New(os.Stdout, "", 0)
+	keepers := platformKeepers(180, 5, logger)
 	if len(keepers) == 0 {
 		t.Fatal("expected at least one keeper for darwin")
 	}
