@@ -15,7 +15,7 @@ type caller interface {
 }
 
 var (
-	user32           = windows.NewLazyDLL("user32.dll")
+	user32                  = windows.NewLazyDLL("user32.dll")
 	procGetCursorPos caller = user32.NewProc("GetCursorPos")
 	procSetCursorPos caller = user32.NewProc("SetCursorPos")
 )

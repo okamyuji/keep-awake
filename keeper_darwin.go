@@ -28,7 +28,7 @@ func (k *caffeinateKeeper) Start() error {
 
 func (k *caffeinateKeeper) Stop() error {
 	if k.cmd != nil && k.cmd.Process != nil {
-		k.cmd.Process.Signal(syscall.SIGTERM)
+		_ = k.cmd.Process.Signal(syscall.SIGTERM)
 		err := k.cmd.Wait()
 		if err != nil {
 			if exitErr, ok := err.(*exec.ExitError); ok {

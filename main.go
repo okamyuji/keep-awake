@@ -22,7 +22,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "エラー: %v\n", err)
 		os.Exit(1)
 	}
-	defer activeKeeper.Stop()
+	defer func() { _ = activeKeeper.Stop() }()
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
