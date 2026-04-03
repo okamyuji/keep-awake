@@ -13,6 +13,8 @@ help:
 	@echo "  make build-all      - 全プラットフォームのビルド"
 	@echo "  make clean          - ビルド成果物の削除"
 	@echo "  make test           - テストの実行"
+	@echo "  make lint           - 品質チェック（vet/fmt/staticcheck/golangci-lint）"
+	@echo "  make check          - テスト＋品質チェック＋ビルド（全検証）"
 	@echo "  make run            - ローカル実行（macOS）"
 
 # Windowsバイナリのビルド
@@ -49,6 +51,25 @@ clean:
 test:
 	@echo "テストを実行しています..."
 	$(GO) test -v ./...
+
+# 品質チェック
+.PHONY: lint
+lint:
+	@echo "品質チェックを実行しています..."
+	@echo "--- go vet ---"
+	$(GO) vet ./...
+	@echo "--- gofmt ---"
+	@test -z "$$(gofmt -l .)" || (echo "以下のファイルにフォーマットの問題があります:"; gofmt -l .; exit 1)
+	@echo "--- staticcheck ---"
+	staticcheck ./...
+	@echo "--- golangci-lint ---"
+	golangci-lint run ./...
+	@echo "品質チェック完了: 問題なし"
+
+# 全検証（テスト＋品質チェック＋ビルド）
+.PHONY: check
+check: test lint build-all
+	@echo "全検証完了"
 
 # ローカル実行
 .PHONY: run
