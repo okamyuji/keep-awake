@@ -219,4 +219,6 @@ $RECYCLE.BIN/
 
 keep-awake
 keep-awake.exe
+keep-awake-macos
+keep-awake-macos-intel
 .vscode/

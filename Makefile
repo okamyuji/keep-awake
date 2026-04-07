@@ -1,8 +1,5 @@
 # 基本変数の設定
-BINARY_NAME=keep-awake.exe
 GO=go
-GOOS=windows
-GOARCH=amd64
 
 # デフォルトのターゲット
 .DEFAULT_GOAL := help
@@ -11,37 +8,42 @@ GOARCH=amd64
 .PHONY: help
 help:
 	@echo "使用可能なコマンド:"
-	@echo "  make init     - プロジェクトの初期化"
-	@echo "  make deps    - 依存パッケージのインストール"
-	@echo "  make build   - Windowsバイナリのビルド"
-	@echo "  make clean   - ビルド成果物の削除"
-	@echo "  make test    - テストの実行"
-	@echo "  make all     - 依存関係のインストールからビルドまでを実行"
-
-# プロジェクトの初期化
-.PHONY: init
-init:
-	@echo "プロジェクトを初期化しています..."
-	mkdir -p keep-awake
-	cd keep-awake && $(GO) mod init keep-awake
-
-# 依存パッケージのインストール
-.PHONY: deps
-deps:
-	@echo "依存パッケージをインストールしています..."
-	$(GO) get golang.org/x/sys/windows
+	@echo "  make build-windows  - Windowsバイナリのビルド"
+	@echo "  make build-macos    - macOSバイナリのビルド"
+	@echo "  make build-all      - 全プラットフォームのビルド"
+	@echo "  make clean          - ビルド成果物の削除"
+	@echo "  make test           - テストの実行"
+	@echo "  make lint           - 品質チェック（vet/fmt/staticcheck/golangci-lint）"
+	@echo "  make check          - テスト＋品質チェック＋ビルド（全検証）"
+	@echo "  make run            - ローカル実行（macOS）"
 
 # Windowsバイナリのビルド
-.PHONY: build
-build:
+.PHONY: build-windows
+build-windows:
 	@echo "Windowsバイナリをビルドしています..."
-	GOOS=$(GOOS) GOARCH=$(GOARCH) $(GO) build -o $(BINARY_NAME)
+	GOOS=windows GOARCH=amd64 $(GO) build -o keep-awake.exe
+
+# macOSバイナリのビルド（Apple Silicon）
+.PHONY: build-macos
+build-macos:
+	@echo "macOSバイナリをビルドしています..."
+	GOOS=darwin GOARCH=arm64 $(GO) build -o keep-awake-macos
+
+# macOSバイナリのビルド（Intel）
+.PHONY: build-macos-intel
+build-macos-intel:
+	@echo "macOS (Intel) バイナリをビルドしています..."
+	GOOS=darwin GOARCH=amd64 $(GO) build -o keep-awake-macos-intel
+
+# 全プラットフォームのビルド
+.PHONY: build-all
+build-all: build-windows build-macos build-macos-intel
 
 # ビルド成果物の削除
 .PHONY: clean
 clean:
 	@echo "ビルド成果物を削除しています..."
-	rm -f $(BINARY_NAME)
+	rm -f keep-awake.exe keep-awake-macos keep-awake-macos-intel
 	go clean
 
 # テストの実行
@@ -50,18 +52,35 @@ test:
 	@echo "テストを実行しています..."
 	$(GO) test -v ./...
 
-# すべての処理を実行
-.PHONY: all
-all: clean deps build
+# 品質チェック
+.PHONY: lint
+lint:
+	@echo "品質チェックを実行しています..."
+	@echo "--- go vet ---"
+	$(GO) vet ./...
+	@echo "--- gofmt ---"
+	@test -z "$$(gofmt -l .)" || (echo "以下のファイルにフォーマットの問題があります:"; gofmt -l .; exit 1)
+	@echo "--- staticcheck ---"
+	staticcheck ./...
+	@echo "--- golangci-lint ---"
+	golangci-lint run ./...
+	@echo "品質チェック完了: 問題なし"
 
-# 実行可能ファイルの実行（開発時のテスト用）
+# 全検証（テスト＋品質チェック＋ビルド）
+.PHONY: check
+check: test lint build-all
+	@echo "全検証完了"
+
+# ローカル実行
 .PHONY: run
 run:
 	@echo "プログラムを実行しています..."
-	./$(BINARY_NAME)
+	$(GO) run .
 
 # カスタム間隔での実行（例：make run-custom INTERVAL=60）
 .PHONY: run-custom
 run-custom:
+	@test -n "$(INTERVAL)" || (echo "INTERVAL を指定してください。例: make run-custom INTERVAL=60"; exit 1)
+	@echo "$(INTERVAL)" | grep -qE '^[1-9][0-9]*$$' || (echo "INTERVAL は正の整数を指定してください: $(INTERVAL)"; exit 1)
 	@echo "カスタム設定でプログラムを実行しています..."
-	./$(BINARY_NAME) -interval $(INTERVAL)
+	$(GO) run . -interval $(INTERVAL)

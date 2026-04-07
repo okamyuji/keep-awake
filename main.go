@@ -6,68 +6,44 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
-	"unsafe"
-
-	"golang.org/x/sys/windows"
 )
-
-var (
-	user32           = windows.NewLazyDLL("user32.dll")
-	procGetCursorPos = user32.NewProc("GetCursorPos")
-	procSetCursorPos = user32.NewProc("SetCursorPos")
-)
-
-type POINT struct {
-	X int32
-	Y int32
-}
-
-func getCursorPos() (x, y int32) {
-	var pt POINT
-	procGetCursorPos.Call(uintptr(unsafe.Pointer(&pt)))
-	return pt.X, pt.Y
-}
-
-func setCursorPos(x, y int32) {
-	procSetCursorPos.Call(uintptr(x), uintptr(y))
-}
 
 func main() {
-	// コマンドライン引数の設定
-	interval := flag.Int("interval", 180, "マウス移動の間隔(秒)")
+	os.Exit(run())
+}
+
+func run() int {
+	interval := flag.Int("interval", 180, "スリープ防止の間隔(秒)")
 	maxMove := flag.Int("maxmove", 5, "最大移動ピクセル数")
 	flag.Parse()
 
-	// 現在の設定を表示
-	fmt.Printf("設定:\n - 間隔: %d秒\n - 最大移動距離: %dピクセル\n", *interval, *maxMove)
-	fmt.Println("Ctrl+Cで終了します")
+	if *interval <= 0 {
+		fmt.Fprintln(os.Stderr, "エラー: interval は正の整数を指定してください")
+		return 1
+	}
 
-	// シグナルハンドリングの設定
+	logger, cleanup := setupLogger()
+	defer cleanup()
+
+	logger.Printf("設定: 間隔=%d秒, 最大移動距離=%dピクセル", *interval, *maxMove)
+	logger.Println("Ctrl+Cで終了します")
+
+	keepers := platformKeepers(*interval, *maxMove, logger)
+	activeKeeper, err := tryKeepers(keepers, logger)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "エラー: %v\n", err)
+		return 1
+	}
+	defer func() {
+		if err := activeKeeper.Stop(); err != nil {
+			logger.Printf("停止時にエラーが発生: %v\n", err)
+		}
+	}()
+
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	<-sigChan
 
-	// タイマーの設定
-	ticker := time.NewTicker(time.Duration(*interval) * time.Second)
-	defer ticker.Stop()
-
-	// メインループ
-	for {
-		select {
-		case <-ticker.C:
-			// 現在のマウス位置を取得
-			x, y := getCursorPos()
-
-			// 1ピクセル右に移動して戻す
-			setCursorPos(x+1, y)
-			time.Sleep(100 * time.Millisecond)
-			setCursorPos(x, y)
-
-			fmt.Printf("マウスを移動: (%d, %d) -> 1px右 -> 元の位置\n", x, y)
-
-		case <-sigChan:
-			fmt.Println("\nプログラムを終了します")
-			return
-		}
-	}
+	logger.Println("プログラムを終了します")
+	return 0
 }
