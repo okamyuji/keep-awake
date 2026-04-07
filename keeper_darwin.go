@@ -13,12 +13,14 @@ import (
 type caffeinateKeeper struct {
 	cmd    *exec.Cmd
 	logger *log.Logger
-	once   sync.Once
+	mu     sync.Mutex
 }
 
 func (k *caffeinateKeeper) Name() string { return "caffeinate" }
 
 func (k *caffeinateKeeper) Start() error {
+	k.mu.Lock()
+	defer k.mu.Unlock()
 	if k.cmd != nil && k.cmd.Process != nil {
 		return fmt.Errorf("caffeinate は既に起動済みです")
 	}
@@ -35,25 +37,25 @@ func (k *caffeinateKeeper) Start() error {
 }
 
 func (k *caffeinateKeeper) Stop() error {
-	var stopErr error
-	k.once.Do(func() {
-		if k.cmd != nil && k.cmd.Process != nil {
-			_ = k.cmd.Process.Signal(syscall.SIGTERM)
-			err := k.cmd.Wait()
-			if err != nil {
-				if exitErr, ok := err.(*exec.ExitError); ok {
-					if status, ok := exitErr.Sys().(syscall.WaitStatus); ok && status.Signaled() {
-						k.logger.Println("caffeinate プロセスを停止しました")
-						return
-					}
-				}
-				stopErr = err
-				return
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	if k.cmd == nil || k.cmd.Process == nil {
+		return nil
+	}
+	_ = k.cmd.Process.Signal(syscall.SIGTERM)
+	err := k.cmd.Wait()
+	k.cmd = nil
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok && status.Signaled() {
+				k.logger.Println("caffeinate プロセスを停止しました")
+				return nil
 			}
-			k.logger.Println("caffeinate プロセスを停止しました")
 		}
-	})
-	return stopErr
+		return err
+	}
+	k.logger.Println("caffeinate プロセスを停止しました")
+	return nil
 }
 
 func platformKeepers(interval, maxMove int, logger *log.Logger) []Keeper {

@@ -13,6 +13,11 @@ func main() {
 	maxMove := flag.Int("maxmove", 5, "最大移動ピクセル数")
 	flag.Parse()
 
+	if *interval <= 0 {
+		fmt.Fprintln(os.Stderr, "エラー: interval は正の整数を指定してください")
+		os.Exit(1)
+	}
+
 	logger, cleanup := setupLogger()
 	defer cleanup()
 
@@ -26,7 +31,11 @@ func main() {
 		fmt.Fprintf(os.Stderr, "エラー: %v\n", err)
 		os.Exit(1)
 	}
-	defer func() { _ = activeKeeper.Stop() }()
+	defer func() {
+		if err := activeKeeper.Stop(); err != nil {
+			logger.Printf("停止時にエラーが発生: %v\n", err)
+		}
+	}()
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)

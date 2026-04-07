@@ -54,6 +54,13 @@ func TestMouseMoveKeeper_StartStop(t *testing.T) {
 		},
 	}
 
+	oldGet := procGetCursorPos
+	oldSet := procSetCursorPos
+	t.Cleanup(func() {
+		procGetCursorPos = oldGet
+		procSetCursorPos = oldSet
+	})
+
 	procGetCursorPos = mockDLL.NewProc("GetCursorPos")
 	procSetCursorPos = mockDLL.NewProc("SetCursorPos")
 

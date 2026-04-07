@@ -29,15 +29,19 @@ type POINT struct {
 
 func getCursorPos() (x, y int32, err error) {
 	var pt POINT
-	ret, _, _ := procGetCursorPos.Call(uintptr(unsafe.Pointer(&pt)))
+	ret, _, sysErr := procGetCursorPos.Call(uintptr(unsafe.Pointer(&pt)))
 	if ret == 0 {
-		return 0, 0, fmt.Errorf("GetCursorPos の呼び出しに失敗しました")
+		return 0, 0, fmt.Errorf("GetCursorPos の呼び出しに失敗しました: %v", sysErr)
 	}
 	return pt.X, pt.Y, nil
 }
 
-func setCursorPos(x, y int32) {
-	procSetCursorPos.Call(uintptr(x), uintptr(y))
+func setCursorPos(x, y int32) error {
+	ret, _, sysErr := procSetCursorPos.Call(uintptr(x), uintptr(y))
+	if ret == 0 {
+		return fmt.Errorf("SetCursorPos の呼び出しに失敗しました: %v", sysErr)
+	}
+	return nil
 }
 
 type mouseMoveKeeper struct {
@@ -45,19 +49,25 @@ type mouseMoveKeeper struct {
 	maxMove  int
 	done     chan struct{}
 	logger   *log.Logger
-	once     sync.Once
+	mu       sync.Mutex
 }
 
 func (k *mouseMoveKeeper) Name() string { return "mouse-move" }
 
 func (k *mouseMoveKeeper) Start() error {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	if k.done != nil {
+		return nil
+	}
 	k.done = make(chan struct{})
+	done := k.done
 	go func() {
 		ticker := time.NewTicker(time.Duration(k.interval) * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
-			case <-k.done:
+			case <-done:
 				return
 			case <-ticker.C:
 				x, y, err := getCursorPos()
@@ -69,9 +79,14 @@ func (k *mouseMoveKeeper) Start() error {
 				if move <= 0 {
 					move = 1
 				}
-				setCursorPos(x+move, y)
+				if err := setCursorPos(x+move, y); err != nil {
+					k.logger.Printf("カーソル移動に失敗: %v\n", err)
+					continue
+				}
 				time.Sleep(100 * time.Millisecond)
-				setCursorPos(x, y)
+				if err := setCursorPos(x, y); err != nil {
+					k.logger.Printf("カーソル復帰に失敗: %v\n", err)
+				}
 				k.logger.Printf("マウスを移動: (%d, %d) -> %dpx右 -> 元の位置\n", x, y, move)
 			}
 		}
@@ -80,11 +95,13 @@ func (k *mouseMoveKeeper) Start() error {
 }
 
 func (k *mouseMoveKeeper) Stop() error {
-	k.once.Do(func() {
-		if k.done != nil {
-			close(k.done)
-		}
-	})
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	if k.done == nil {
+		return nil
+	}
+	close(k.done)
+	k.done = nil
 	return nil
 }
 
