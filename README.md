@@ -1,124 +1,165 @@
-# Windows PC スリープ防止ユーティリティ
+# keep-awake
 
-このプログラムは、Windows PCがスリープ状態に入るのを防ぐため、定期的にマウスカーソルを微小に動かすユーティリティです。
-macOS上でクロスコンパイルして、Windows用の実行ファイルを生成します。
+PCがスリープ状態に入るのを防止するクロスプラットフォーム対応のユーティリティです。
+macOSではcaffeinateコマンドを利用し、Windowsではマウスカーソルの微小移動によってスリープを抑制します。
 
-## 機能
+## 対応プラットフォーム
 
-- 設定可能な間隔でマウスカーソルを自動的に動かします
-- 元の位置に自動的に戻るため、作業の妨げになりません
-- コマンドライン引数でカスタマイズ可能
-- 安全な終了機能（Ctrl+C）をサポート
-
-## 必要要件
-
-### 開発環境（macOS）
-
-- Go 1.16以上
-- Make
-- git
-
-### 実行環境（Windows）
-
+- macOS (Apple Silicon / Intel)
 - Windows 10/11
 
-## インストール方法
+## 仕組み
 
-1. リポジトリのクローン:
+OS別に最適なスリープ防止の手段が自動的に選択されます。
 
-    ```bash
-    git clone https://github.com/okamyuji/keep-awake
-    cd keep-awake
-    ```
+macOSでは、システム標準のcaffeinateプロセスを起動して、ディスプレイのスリープとシステムのアイドルスリープを防止します。
 
-2. ビルド:
+Windowsでは、設定された間隔ごとにマウスカーソルを1ピクセル移動させて元の位置に戻します。
+カーソルは一瞬で元の位置に復帰するため、作業の妨げにはなりません。
 
-    ```bash
-    make all
-    ```
+## 必要な環境
 
-これにより、`keep-awake.exe`が生成されます。
+### 開発環境
 
-## 使用方法
+- Go 1.23以上
+- Make
+- staticcheck (品質チェック用)
+- golangci-lint (品質チェック用)
+
+### 実行環境
+
+- macOS 12以上、またはWindows 10/11
+
+## インストール
+
+リポジトリをクローンしてビルドします。
+
+```bash
+git clone https://github.com/okamyuji/keep-awake
+cd keep-awake
+make build-all
+```
+
+macOS向けのみビルドする場合は以下のように実行します。
+
+```bash
+make build-macos
+```
+
+Windows向けのみビルドする場合は以下のように実行します。
+
+```bash
+make build-windows
+```
+
+## 使い方
 
 ### 基本的な実行
 
+macOSではローカルビルドをそのまま実行できます。
+
 ```bash
-./keep-awake.exe
+make run
+```
+
+Windowsでは生成されたexeファイルを実行します。
+
+```bash
+keep-awake.exe
 ```
 
 ### カスタム設定での実行
 
+間隔を指定して実行できます。
+
 ```bash
-./keep-awake.exe -interval 60 -maxmove 5
+make run-custom INTERVAL=60
+```
+
+コマンドライン引数を直接指定する場合は以下のように実行します。
+
+```bash
+./keep-awake-macos -interval 60 -maxmove 3
 ```
 
 ### コマンドラインオプション
 
-- `-interval`: マウス移動の間隔（秒）
-    - デフォルト: 180秒
-- `-maxmove`: 最大移動ピクセル数
-    - デフォルト: 5ピクセル
+| オプション | 説明 | デフォルト値 |
+|-----------|------|-------------|
+| -interval | スリープ防止の間隔を秒単位で指定します | 180 |
+| -maxmove  | マウスの最大移動ピクセル数を指定します (Windows用) | 5 |
+
+macOSではcaffeinateがスリープを常時防止するため、intervalオプションは無視されます。
+
+### 終了方法
+
+Ctrl+Cを押すとプログラムが終了します。
+macOSではcaffeinateプロセスも自動的に停止します。
 
 ## 開発者向け情報
 
 ### makeコマンド一覧
 
 ```bash
-make help      # ヘルプの表示
-make init      # プロジェクトの初期化
-make deps      # 依存パッケージのインストール
-make build     # Windowsバイナリのビルド
-make clean     # ビルド成果物の削除
-make test      # テストの実行
-make all       # 全処理の実行
+make help             # 使用可能なコマンドを表示します
+make build-windows    # Windows用バイナリをビルドします
+make build-macos      # macOS (Apple Silicon)用バイナリをビルドします
+make build-macos-intel # macOS (Intel)用バイナリをビルドします
+make build-all        # 全プラットフォーム向けにビルドします
+make clean            # ビルド成果物を削除します
+make test             # テストを実行します
+make lint             # 品質チェックを実行します (vet/gofmt/staticcheck/golangci-lint)
+make check            # テスト、品質チェック、ビルドをまとめて実行します
+make run              # macOSでローカル実行します
+make run-custom       # INTERVALを指定して実行します (例: make run-custom INTERVAL=60)
 ```
 
-### カスタム間隔での実行（開発時）
+### テストの実行
 
 ```bash
-make run-custom INTERVAL=60
+make test
 ```
 
-## セキュリティ上の注意
+### 品質チェック
 
-- プログラムはWindows上で自動的にマウスを動かすため、セキュリティソフトウェアによって検知される可能性があります
-- 必要に応じて、セキュリティソフトウェアの除外リストに追加してください
+すべての静的解析ツールをまとめて実行します。
 
-## トラブルシューティング
+```bash
+make lint
+```
 
-### よくある問題と解決方法
+テスト、品質チェック、ビルドを一括で実行して問題がないか確認します。
 
-1. ビルドエラーが発生する場合
+```bash
+make check
+```
 
-    ```bash
-    make clean
-    make all
-    ```
+### プロジェクト構成
 
-2. 実行時にアクセス権限エラーが発生する場合
+```
+main.go                 # エントリーポイントとシグナルハンドリングを担当します
+keeper.go               # Keeperインターフェースと戦略選択のロジックを定義しています
+keeper_darwin.go        # macOS向けのcaffeinateによるスリープ防止を実装しています
+keeper_windows.go       # Windows向けのマウス移動によるスリープ防止を実装しています
+keeper_unsupported.go   # 未対応OS向けのフォールバックを提供します
+logger.go               # 標準出力とファイルへの二重出力ロガーを実装しています
+Makefile                # ビルド、テスト、品質チェックのタスクを定義しています
+```
 
-- Windowsでプログラムを管理者として実行してください
+### ログ出力
+
+プログラムの実行ログは標準出力と、実行ディレクトリのkeep-awake.logファイルの両方に出力されます。
+ログファイルは起動のたびに初期化されます。
+
+## セキュリティについて
+
+Windows版はマウスカーソルを自動的に移動させるため、セキュリティソフトウェアに検知される場合があります。
+その場合は、セキュリティソフトウェアの除外リストに追加してください。
 
 ## ライセンス
 
 MIT License
 
-## 貢献について
-
-1. Forkを作成
-2. 新しいブランチを作成 (`git checkout -b feature/amazing-feature`)
-3. 変更をコミット (`git commit -m 'Add some amazing feature'`)
-4. ブランチをPush (`git push origin feature/amazing-feature`)
-5. Pull Requestを作成
-
-## サポート
-
-問題や提案がある場合は、Issueを作成してください。
-
 ## 作者
 
 [okamyuji](https://github.com/okamyuji)
-
----
-最終更新日: 2024年12月27日
