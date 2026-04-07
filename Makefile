@@ -80,5 +80,6 @@ run:
 # カスタム間隔での実行（例：make run-custom INTERVAL=60）
 .PHONY: run-custom
 run-custom:
+	@test -n "$(INTERVAL)" || (echo "INTERVAL を指定してください。例: make run-custom INTERVAL=60"; exit 1)
 	@echo "カスタム設定でプログラムを実行しています..."
 	$(GO) run . -interval $(INTERVAL)

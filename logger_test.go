@@ -7,6 +7,21 @@ import (
 )
 
 func TestSetupLogger(t *testing.T) {
+	dir := t.TempDir()
+
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(orig); err != nil {
+			t.Errorf("failed to restore cwd: %v", err)
+		}
+	})
+
 	logger, cleanup := setupLogger()
 	defer cleanup()
 
@@ -26,11 +41,18 @@ func TestSetupLogger_TruncatesOnStartup(t *testing.T) {
 	}
 
 	// Change to temp dir so setupLogger creates log there
-	orig, _ := os.Getwd()
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
 	if err := os.Chdir(dir); err != nil {
 		t.Fatalf("failed to chdir: %v", err)
 	}
-	defer func() { _ = os.Chdir(orig) }()
+	t.Cleanup(func() {
+		if err := os.Chdir(orig); err != nil {
+			t.Errorf("failed to restore cwd: %v", err)
+		}
+	})
 
 	logger, cleanup := setupLogger()
 	defer cleanup()

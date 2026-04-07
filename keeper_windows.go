@@ -3,7 +3,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -25,10 +27,13 @@ type POINT struct {
 	Y int32
 }
 
-func getCursorPos() (x, y int32) {
+func getCursorPos() (x, y int32, err error) {
 	var pt POINT
-	procGetCursorPos.Call(uintptr(unsafe.Pointer(&pt)))
-	return pt.X, pt.Y
+	ret, _, _ := procGetCursorPos.Call(uintptr(unsafe.Pointer(&pt)))
+	if ret == 0 {
+		return 0, 0, fmt.Errorf("GetCursorPos の呼び出しに失敗しました")
+	}
+	return pt.X, pt.Y, nil
 }
 
 func setCursorPos(x, y int32) {
@@ -37,8 +42,10 @@ func setCursorPos(x, y int32) {
 
 type mouseMoveKeeper struct {
 	interval int
+	maxMove  int
 	done     chan struct{}
 	logger   *log.Logger
+	once     sync.Once
 }
 
 func (k *mouseMoveKeeper) Name() string { return "mouse-move" }
@@ -53,11 +60,19 @@ func (k *mouseMoveKeeper) Start() error {
 			case <-k.done:
 				return
 			case <-ticker.C:
-				x, y := getCursorPos()
-				setCursorPos(x+1, y)
+				x, y, err := getCursorPos()
+				if err != nil {
+					k.logger.Printf("カーソル位置の取得に失敗: %v\n", err)
+					continue
+				}
+				move := int32(k.maxMove)
+				if move <= 0 {
+					move = 1
+				}
+				setCursorPos(x+move, y)
 				time.Sleep(100 * time.Millisecond)
 				setCursorPos(x, y)
-				k.logger.Printf("マウスを移動: (%d, %d) -> 1px右 -> 元の位置\n", x, y)
+				k.logger.Printf("マウスを移動: (%d, %d) -> %dpx右 -> 元の位置\n", x, y, move)
 			}
 		}
 	}()
@@ -65,12 +80,14 @@ func (k *mouseMoveKeeper) Start() error {
 }
 
 func (k *mouseMoveKeeper) Stop() error {
-	if k.done != nil {
-		close(k.done)
-	}
+	k.once.Do(func() {
+		if k.done != nil {
+			close(k.done)
+		}
+	})
 	return nil
 }
 
 func platformKeepers(interval, maxMove int, logger *log.Logger) []Keeper {
-	return []Keeper{&mouseMoveKeeper{interval: interval, logger: logger}}
+	return []Keeper{&mouseMoveKeeper{interval: interval, maxMove: maxMove, logger: logger}}
 }

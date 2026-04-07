@@ -22,6 +22,7 @@ func main() {
 	keepers := platformKeepers(*interval, *maxMove, logger)
 	activeKeeper, err := tryKeepers(keepers, logger)
 	if err != nil {
+		cleanup()
 		fmt.Fprintf(os.Stderr, "エラー: %v\n", err)
 		os.Exit(1)
 	}

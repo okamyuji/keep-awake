@@ -3,6 +3,8 @@
 package main
 
 import (
+	"io"
+	"log"
 	"testing"
 	"time"
 	"unsafe"
@@ -28,7 +30,7 @@ func (dll *MockDLL) NewProc(name string) *MockProc {
 }
 
 func TestMouseMoveKeeper_Name(t *testing.T) {
-	k := &mouseMoveKeeper{interval: 1}
+	k := &mouseMoveKeeper{interval: 1, maxMove: 5, logger: log.New(io.Discard, "", 0)}
 	if k.Name() != "mouse-move" {
 		t.Errorf("expected 'mouse-move', got '%s'", k.Name())
 	}
@@ -41,12 +43,12 @@ func TestMouseMoveKeeper_StartStop(t *testing.T) {
 				CallFunc: func(a ...uintptr) (uintptr, uintptr, error) {
 					pt := (*POINT)(unsafe.Pointer(a[0]))
 					pt.X, pt.Y = 100, 200
-					return 0, 0, nil
+					return 1, 0, nil
 				},
 			},
 			"SetCursorPos": {
 				CallFunc: func(a ...uintptr) (uintptr, uintptr, error) {
-					return 0, 0, nil
+					return 1, 0, nil
 				},
 			},
 		},
@@ -55,7 +57,7 @@ func TestMouseMoveKeeper_StartStop(t *testing.T) {
 	procGetCursorPos = mockDLL.NewProc("GetCursorPos")
 	procSetCursorPos = mockDLL.NewProc("SetCursorPos")
 
-	k := &mouseMoveKeeper{interval: 1}
+	k := &mouseMoveKeeper{interval: 1, maxMove: 5, logger: log.New(io.Discard, "", 0)}
 	if err := k.Start(); err != nil {
 		t.Fatalf("Start failed: %v", err)
 	}
@@ -68,7 +70,8 @@ func TestMouseMoveKeeper_StartStop(t *testing.T) {
 }
 
 func TestPlatformKeepers_Windows(t *testing.T) {
-	keepers := platformKeepers(180, 5)
+	logger := log.New(io.Discard, "", 0)
+	keepers := platformKeepers(180, 5, logger)
 	if len(keepers) == 0 {
 		t.Fatal("expected at least one keeper for windows")
 	}

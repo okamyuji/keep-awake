@@ -25,6 +25,7 @@ func TestCaffeinateKeeper_StartStop(t *testing.T) {
 	if err := k.Start(); err != nil {
 		t.Fatalf("Start failed: %v", err)
 	}
+	defer func() { _ = k.Stop() }()
 
 	if k.cmd == nil || k.cmd.Process == nil {
 		t.Fatal("caffeinate process not started")
