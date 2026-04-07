@@ -1,5 +1,5 @@
 module keep-awake
 
-go 1.23.4
+go 1.25.0
 
-require golang.org/x/sys v0.29.0
+require golang.org/x/sys v0.42.0

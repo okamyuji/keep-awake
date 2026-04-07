@@ -1,5 +1,8 @@
 # 基本変数の設定
 GO=go
+GOBIN=$(shell $(GO) env GOPATH)/bin
+STATICCHECK=$(GOBIN)/staticcheck
+GOLANGCI_LINT=$(GOBIN)/golangci-lint
 
 # デフォルトのターゲット
 .DEFAULT_GOAL := help
@@ -13,6 +16,7 @@ help:
 	@echo "  make build-all      - 全プラットフォームのビルド"
 	@echo "  make clean          - ビルド成果物の削除"
 	@echo "  make test           - テストの実行"
+	@echo "  make tools          - lint用ツールのインストール"
 	@echo "  make lint           - 品質チェック（vet/fmt/staticcheck/golangci-lint）"
 	@echo "  make check          - テスト＋品質チェック＋ビルド（全検証）"
 	@echo "  make run            - ローカル実行（macOS）"
@@ -52,18 +56,29 @@ test:
 	@echo "テストを実行しています..."
 	$(GO) test -v ./...
 
+# lint用ツールのインストール
+$(STATICCHECK):
+	$(GO) install honnef.co/go/tools/cmd/staticcheck@latest
+
+$(GOBIN)/golangci-lint:
+	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+.PHONY: tools
+tools: $(STATICCHECK) $(GOBIN)/golangci-lint
+	@echo "lint用ツールのインストール完了"
+
 # 品質チェック
 .PHONY: lint
-lint:
+lint: $(STATICCHECK) $(GOBIN)/golangci-lint
 	@echo "品質チェックを実行しています..."
 	@echo "--- go vet ---"
 	$(GO) vet ./...
 	@echo "--- gofmt ---"
 	@test -z "$$(gofmt -l .)" || (echo "以下のファイルにフォーマットの問題があります:"; gofmt -l .; exit 1)
 	@echo "--- staticcheck ---"
-	staticcheck ./...
+	$(STATICCHECK) ./...
 	@echo "--- golangci-lint ---"
-	golangci-lint run ./...
+	$(GOLANGCI_LINT) run ./...
 	@echo "品質チェック完了: 問題なし"
 
 # 全検証（テスト＋品質チェック＋ビルド）
