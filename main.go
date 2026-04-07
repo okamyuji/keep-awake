@@ -9,13 +9,17 @@ import (
 )
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	interval := flag.Int("interval", 180, "スリープ防止の間隔(秒)")
 	maxMove := flag.Int("maxmove", 5, "最大移動ピクセル数")
 	flag.Parse()
 
 	if *interval <= 0 {
 		fmt.Fprintln(os.Stderr, "エラー: interval は正の整数を指定してください")
-		os.Exit(1)
+		return 1
 	}
 
 	logger, cleanup := setupLogger()
@@ -27,9 +31,8 @@ func main() {
 	keepers := platformKeepers(*interval, *maxMove, logger)
 	activeKeeper, err := tryKeepers(keepers, logger)
 	if err != nil {
-		cleanup()
 		fmt.Fprintf(os.Stderr, "エラー: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 	defer func() {
 		if err := activeKeeper.Stop(); err != nil {
@@ -42,4 +45,5 @@ func main() {
 	<-sigChan
 
 	logger.Println("プログラムを終了します")
+	return 0
 }

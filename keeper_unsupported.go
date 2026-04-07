@@ -4,6 +4,6 @@ package main
 
 import "log"
 
-func platformKeepers(interval, maxMove int, logger *log.Logger) []Keeper {
+func platformKeepers(_, _ int, _ *log.Logger) []Keeper {
 	return []Keeper{}
 }

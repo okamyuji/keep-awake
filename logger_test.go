@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -67,23 +68,10 @@ func TestSetupLogger_TruncatesOnStartup(t *testing.T) {
 	if string(content) == "" {
 		t.Fatal("log file should not be empty")
 	}
-	if contains(string(content), "old log data") {
+	if strings.Contains(string(content), "old log data") {
 		t.Error("old log data should have been truncated")
 	}
-	if !contains(string(content), "new session") {
+	if !strings.Contains(string(content), "new session") {
 		t.Error("new session log should be present")
 	}
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && searchString(s, substr)
-}
-
-func searchString(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

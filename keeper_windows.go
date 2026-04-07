@@ -50,6 +50,7 @@ type mouseMoveKeeper struct {
 	done     chan struct{}
 	logger   *log.Logger
 	mu       sync.Mutex
+	wg       sync.WaitGroup
 }
 
 func (k *mouseMoveKeeper) Name() string { return "mouse-move" }
@@ -62,7 +63,9 @@ func (k *mouseMoveKeeper) Start() error {
 	}
 	k.done = make(chan struct{})
 	done := k.done
+	k.wg.Add(1)
 	go func() {
+		defer k.wg.Done()
 		ticker := time.NewTicker(time.Duration(k.interval) * time.Second)
 		defer ticker.Stop()
 		for {
@@ -96,12 +99,14 @@ func (k *mouseMoveKeeper) Start() error {
 
 func (k *mouseMoveKeeper) Stop() error {
 	k.mu.Lock()
-	defer k.mu.Unlock()
 	if k.done == nil {
+		k.mu.Unlock()
 		return nil
 	}
 	close(k.done)
 	k.done = nil
+	k.mu.Unlock()
+	k.wg.Wait()
 	return nil
 }
 

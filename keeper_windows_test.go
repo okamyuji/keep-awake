@@ -10,23 +10,12 @@ import (
 	"unsafe"
 )
 
-type MockProc struct {
-	CallFunc func(...uintptr) (uintptr, uintptr, error)
+type mockProc struct {
+	callFunc func(...uintptr) (uintptr, uintptr, error)
 }
 
-func (m *MockProc) Call(a ...uintptr) (uintptr, uintptr, error) {
-	return m.CallFunc(a...)
-}
-
-type MockDLL struct {
-	Procs map[string]*MockProc
-}
-
-func (dll *MockDLL) NewProc(name string) *MockProc {
-	if proc, ok := dll.Procs[name]; ok {
-		return proc
-	}
-	return &MockProc{}
+func (m *mockProc) Call(a ...uintptr) (uintptr, uintptr, error) {
+	return m.callFunc(a...)
 }
 
 func TestMouseMoveKeeper_Name(t *testing.T) {
@@ -37,23 +26,6 @@ func TestMouseMoveKeeper_Name(t *testing.T) {
 }
 
 func TestMouseMoveKeeper_StartStop(t *testing.T) {
-	mockDLL := &MockDLL{
-		Procs: map[string]*MockProc{
-			"GetCursorPos": {
-				CallFunc: func(a ...uintptr) (uintptr, uintptr, error) {
-					pt := (*POINT)(unsafe.Pointer(a[0]))
-					pt.X, pt.Y = 100, 200
-					return 1, 0, nil
-				},
-			},
-			"SetCursorPos": {
-				CallFunc: func(a ...uintptr) (uintptr, uintptr, error) {
-					return 1, 0, nil
-				},
-			},
-		},
-	}
-
 	oldGet := procGetCursorPos
 	oldSet := procSetCursorPos
 	t.Cleanup(func() {
@@ -61,8 +33,14 @@ func TestMouseMoveKeeper_StartStop(t *testing.T) {
 		procSetCursorPos = oldSet
 	})
 
-	procGetCursorPos = mockDLL.NewProc("GetCursorPos")
-	procSetCursorPos = mockDLL.NewProc("SetCursorPos")
+	procGetCursorPos = &mockProc{callFunc: func(a ...uintptr) (uintptr, uintptr, error) {
+		pt := (*POINT)(unsafe.Pointer(a[0]))
+		pt.X, pt.Y = 100, 200
+		return 1, 0, nil
+	}}
+	procSetCursorPos = &mockProc{callFunc: func(a ...uintptr) (uintptr, uintptr, error) {
+		return 1, 0, nil
+	}}
 
 	k := &mouseMoveKeeper{interval: 1, maxMove: 5, logger: log.New(io.Discard, "", 0)}
 	if err := k.Start(); err != nil {
