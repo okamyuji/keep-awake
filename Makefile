@@ -37,7 +37,7 @@ build-macos-intel:
 
 # 全プラットフォームのビルド
 .PHONY: build-all
-build-all: build-windows build-macos
+build-all: build-windows build-macos build-macos-intel
 
 # ビルド成果物の削除
 .PHONY: clean
