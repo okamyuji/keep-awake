@@ -16,11 +16,61 @@ type caller interface {
 	Call(a ...uintptr) (uintptr, uintptr, error)
 }
 
+const (
+	esContinuous      uintptr = 0x80000000
+	esSystemRequired  uintptr = 0x00000001
+	esDisplayRequired uintptr = 0x00000002
+)
+
 var (
+	kernel32                          = windows.NewLazyDLL("kernel32.dll")
+	procSetThreadExecutionState caller = kernel32.NewProc("SetThreadExecutionState")
+
 	user32                  = windows.NewLazyDLL("user32.dll")
 	procGetCursorPos caller = user32.NewProc("GetCursorPos")
 	procSetCursorPos caller = user32.NewProc("SetCursorPos")
 )
+
+// executionStateKeeper は SetThreadExecutionState API でスリープを防止する。
+// macOS の caffeinate -di と同等のOSレベル抑止。
+type executionStateKeeper struct {
+	logger *log.Logger
+	mu     sync.Mutex
+	active bool
+}
+
+func (k *executionStateKeeper) Name() string { return "execution-state" }
+
+func (k *executionStateKeeper) Start() error {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	if k.active {
+		return nil
+	}
+	ret, _, err := procSetThreadExecutionState.Call(esContinuous | esSystemRequired | esDisplayRequired)
+	if ret == 0 {
+		return fmt.Errorf("SetThreadExecutionState の呼び出しに失敗しました: %v", err)
+	}
+	k.active = true
+	k.logger.Println("SetThreadExecutionState でスリープ防止を設定しました")
+	return nil
+}
+
+func (k *executionStateKeeper) Stop() error {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	if !k.active {
+		return nil
+	}
+	// ES_CONTINUOUS のみで解除
+	ret, _, err := procSetThreadExecutionState.Call(esContinuous)
+	if ret == 0 {
+		return fmt.Errorf("SetThreadExecutionState の解除に失敗しました: %v", err)
+	}
+	k.active = false
+	k.logger.Println("SetThreadExecutionState のスリープ防止を解除しました")
+	return nil
+}
 
 type POINT struct {
 	X int32
@@ -63,9 +113,7 @@ func (k *mouseMoveKeeper) Start() error {
 	}
 	k.done = make(chan struct{})
 	done := k.done
-	k.wg.Add(1)
-	go func() {
-		defer k.wg.Done()
+	k.wg.Go(func() {
 		ticker := time.NewTicker(time.Duration(k.interval) * time.Second)
 		defer ticker.Stop()
 		for {
@@ -93,7 +141,7 @@ func (k *mouseMoveKeeper) Start() error {
 				k.logger.Printf("マウスを移動: (%d, %d) -> %dpx右 -> 元の位置\n", x, y, move)
 			}
 		}
-	}()
+	})
 	return nil
 }
 
@@ -111,5 +159,8 @@ func (k *mouseMoveKeeper) Stop() error {
 }
 
 func platformKeepers(interval, maxMove int, logger *log.Logger) []Keeper {
-	return []Keeper{&mouseMoveKeeper{interval: interval, maxMove: maxMove, logger: logger}}
+	return []Keeper{
+		&executionStateKeeper{logger: logger},
+		&mouseMoveKeeper{interval: interval, maxMove: maxMove, logger: logger},
+	}
 }

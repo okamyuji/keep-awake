@@ -54,13 +54,57 @@ func TestMouseMoveKeeper_StartStop(t *testing.T) {
 	}
 }
 
+func TestExecutionStateKeeper_Name(t *testing.T) {
+	k := &executionStateKeeper{logger: log.New(io.Discard, "", 0)}
+	if k.Name() != "execution-state" {
+		t.Errorf("expected 'execution-state', got '%s'", k.Name())
+	}
+}
+
+func TestExecutionStateKeeper_StartStop(t *testing.T) {
+	oldProc := procSetThreadExecutionState
+	t.Cleanup(func() { procSetThreadExecutionState = oldProc })
+
+	var lastFlags uintptr
+	procSetThreadExecutionState = &mockProc{callFunc: func(a ...uintptr) (uintptr, uintptr, error) {
+		lastFlags = a[0]
+		return 1, 0, nil
+	}}
+
+	k := &executionStateKeeper{logger: log.New(io.Discard, "", 0)}
+	if err := k.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	wantStart := esContinuous | esSystemRequired | esDisplayRequired
+	if lastFlags != wantStart {
+		t.Errorf("Start flags = 0x%X, want 0x%X", lastFlags, wantStart)
+	}
+
+	if err := k.Stop(); err != nil {
+		t.Fatalf("Stop failed: %v", err)
+	}
+	if lastFlags != esContinuous {
+		t.Errorf("Stop flags = 0x%X, want 0x%X", lastFlags, esContinuous)
+	}
+}
+
+func TestExecutionStateKeeper_StopWithoutStart(t *testing.T) {
+	k := &executionStateKeeper{logger: log.New(io.Discard, "", 0)}
+	if err := k.Stop(); err != nil {
+		t.Fatalf("Stop without Start should not error: %v", err)
+	}
+}
+
 func TestPlatformKeepers_Windows(t *testing.T) {
 	logger := log.New(io.Discard, "", 0)
 	keepers := platformKeepers(180, 5, logger)
-	if len(keepers) == 0 {
-		t.Fatal("expected at least one keeper for windows")
+	if len(keepers) < 2 {
+		t.Fatal("expected at least two keepers for windows")
 	}
-	if keepers[0].Name() != "mouse-move" {
-		t.Errorf("expected first keeper to be 'mouse-move', got '%s'", keepers[0].Name())
+	if keepers[0].Name() != "execution-state" {
+		t.Errorf("expected first keeper to be 'execution-state', got '%s'", keepers[0].Name())
+	}
+	if keepers[1].Name() != "mouse-move" {
+		t.Errorf("expected second keeper to be 'mouse-move', got '%s'", keepers[1].Name())
 	}
 }
